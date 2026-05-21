@@ -1,11 +1,33 @@
+![npm](https://img.shields.io/npm/v/flight-ticket-cli)
+![license](https://img.shields.io/github/license/rezawr/flight-ticket-cli)
+![node](https://img.shields.io/node/v/flight-ticket-cli)
+
 # flight-ticket-cli
 
-`flight-ticket-cli` is a CLI-only npm package for public flight fare discovery across `tiket.com`, `traveloka.com`, and `agoda.com`.
+`flight-ticket-cli` is a CLI-only npm package for public flight fare discovery.
+
+It is designed for developers, automation scripts, and AI agents that need normalized flight fare data from the terminal.
+
+## Features
+
+- Search public flight fares from the command line
+- Find the cheapest available fare
+- Output results as JSON
+- Includes fixture mode for safe local demos
+- Built with TypeScript
+- Works with Node.js 18+
+- Follows printingpresscli design and features
 
 ## Install
 
 ```bash
 npm install -g flight-ticket-cli
+```
+
+## Quick Start
+
+```bash
+flight-ticket-pp-cli search --from CGK --to DPS --date 2026-06-15 --json
 ```
 
 ## Commands
@@ -17,12 +39,51 @@ flight-ticket-pp-cli doctor --json
 flight-ticket-pp-cli version
 ```
 
+## Example JSON Output
+
+```json
+[
+  {
+    "source": "fixture",
+    "airline": "Example Air",
+    "from": "CGK",
+    "to": "DPS",
+    "departureTime": "09:10",
+    "arrivalTime": "12:05",
+    "price": 1250000,
+    "currency": "IDR"
+  }
+]
+```
+
+## Supported Sources
+
+| Source | Status |
+|---|---|
+| tiket.com | Stable |
+| traveloka.com | Experimental |
+| agoda.com | Experimental |
+
+## Use Cases
+
+- Flight fare comparison
+- CLI automation
+- Travel research
+- Agent-friendly flight search
+- Indonesian flight market experiments
+
 ## Notes
 
 - This package depends on `cloakbrowser` and `playwright-core` through npm.
-- The scraper runs headless by default. Set `PLAYWRIGHT_HEADLESS=false` if you want to watch the browser.
-- `fixture` mode is included for local demos:
+- The scraper runs headless by default.
+- Set `PLAYWRIGHT_HEADLESS=false` if you want to watch the browser.
 
 ```bash
-flight-ticket-pp-cli search --from CGK --to DPS --date 2026-06-15 --source fixture --json
+PLAYWRIGHT_HEADLESS=false flight-ticket-pp-cli search --from CGK --to DPS --date 2026-06-15
 ```
+
+## Disclaimer
+
+This project searches publicly available flight fare information. Prices, availability, routes, and schedules may change at any time.
+
+This tool is experimental and should not be used as the only source for booking or financial decisions.
