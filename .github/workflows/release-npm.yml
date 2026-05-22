@@ -74,6 +74,9 @@ jobs:
 
   publish-release:
     needs: prepare-release
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/publish-npm.yml
     with:
       ref: ${{ needs.prepare-release.outputs.publish_ref }}
