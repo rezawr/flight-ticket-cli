@@ -26,6 +26,12 @@ export interface BrowserConfig {
   failurePauseMs: number;
   cacheRoot: string;
   userDataDir: string;
+  captureArtifactsOnSuccess: boolean;
+  initialNetworkIdleTimeoutMs: number;
+  selectorTimeoutMs: number;
+  scrollMaxPasses: number;
+  scrollPauseMs: number;
+  scrollIdleTimeoutMs: number;
 }
 
 export function newBrowserConfig(providerName: string, timeoutMs = envInt("PLAYWRIGHT_TIMEOUT_SECONDS", 60) * 1000): BrowserConfig {
@@ -40,7 +46,13 @@ export function newBrowserConfig(providerName: string, timeoutMs = envInt("PLAYW
     visiblePauseMs: envInt("PLAYWRIGHT_VISIBLE_PAUSE_MS", 1200),
     failurePauseMs: envInt("PLAYWRIGHT_FAILURE_PAUSE_MS", 8000),
     cacheRoot,
-    userDataDir: process.env.PLAYWRIGHT_PROFILE_DIR?.trim() || path.join(cacheRoot, "playwright-profile", slug)
+    userDataDir: process.env.PLAYWRIGHT_PROFILE_DIR?.trim() || path.join(cacheRoot, "playwright-profile", slug),
+    captureArtifactsOnSuccess: envBool("FLIGHT_TICKET_CAPTURE_ARTIFACTS", false),
+    initialNetworkIdleTimeoutMs: envInt("PLAYWRIGHT_NETWORKIDLE_MS", 1200),
+    selectorTimeoutMs: envInt("PLAYWRIGHT_SELECTOR_TIMEOUT_MS", 2000),
+    scrollMaxPasses: envInt("PLAYWRIGHT_SCROLL_MAX_PASSES", 18),
+    scrollPauseMs: envInt("PLAYWRIGHT_SCROLL_PAUSE_MS", 250),
+    scrollIdleTimeoutMs: envInt("PLAYWRIGHT_SCROLL_IDLE_MS", 400)
   };
 }
 
@@ -80,6 +92,7 @@ export async function fetchPage(config: BrowserConfig, url: string): Promise<Sna
     notes: [],
     error: ""
   };
+  let page: any | undefined;
 
   const context = await launchPersistentContext({
     userDataDir: config.userDataDir,
@@ -90,20 +103,20 @@ export async function fetchPage(config: BrowserConfig, url: string): Promise<Sna
 
   try {
     const pages = context.pages();
-    const page = pages.length > 0 ? pages[0] : await context.newPage();
+    page = pages.length > 0 ? pages[0] : await context.newPage();
 
-    page.on("console", msg => {
+    page.on("console", (msg: any) => {
       result.console.push(`[${msg.type()}] ${msg.text()}`);
     });
-    page.on("pageerror", error => {
+    page.on("pageerror", (error: unknown) => {
       result.pageErrors.push(String(error));
     });
-    page.on("response", response => {
+    page.on("response", (response: any) => {
       if (response.url() === page.url() || response.request().isNavigationRequest()) {
         result.notes.push(`response ${response.status()} ${response.url()}`);
       }
     });
-    page.on("framenavigated", frame => {
+    page.on("framenavigated", (frame: any) => {
       if (frame === page.mainFrame()) {
         result.notes.push(`navigated ${frame.url()}`);
       }
@@ -120,12 +133,12 @@ export async function fetchPage(config: BrowserConfig, url: string): Promise<Sna
     }
 
     try {
-      await page.waitForLoadState("networkidle", { timeout: Math.min(5000, config.timeoutMs) });
+      await page.waitForLoadState("networkidle", { timeout: Math.min(config.initialNetworkIdleTimeoutMs, config.timeoutMs) });
     } catch {
       result.notes.push("networkidle timeout");
     }
 
-    for (const selector of [
+    const selectors = [
       '[data-testid*="fare"]',
       '[data-testid*="Fare"]',
       ".fare-card",
@@ -134,28 +147,37 @@ export async function fetchPage(config: BrowserConfig, url: string): Promise<Sna
       '[class*="FlightCard"]',
       '[class*="price"]',
       '[class*="Price"]'
-    ]) {
-      try {
-        await page.waitForSelector(selector, { timeout: 8000, state: "visible" });
-        result.notes.push(`fare element appeared: ${selector}`);
-        break;
-      } catch {
-        continue;
-      }
+    ];
+
+    try {
+      const selector = await Promise.any(selectors.map(candidate =>
+        page.waitForSelector(candidate, {
+          timeout: config.selectorTimeoutMs,
+          state: "visible"
+        }).then(() => candidate)
+      ));
+      result.notes.push(`fare element appeared: ${selector}`);
+    } catch {
+      result.notes.push("fare selector timeout");
     }
 
-    result.bodyText = await autoScrollPage(page, result);
+    result.bodyText = await autoScrollPage(page, result, config);
     if (!result.bodyText.trim()) {
       result.bodyText = await readBodyText(page);
     }
 
     result.finalUrl = page.url();
     result.title = await page.title().catch(() => "");
-    await captureArtifacts(page, result, basePath);
+    if (config.captureArtifactsOnSuccess) {
+      await captureArtifacts(page, result, basePath);
+    }
     result.ok = true;
     return result;
   } catch (error) {
     result.error = toErrorMessage(error);
+    if (page) {
+      await captureArtifacts(page, result, basePath);
+    }
     throw new Error(`CloakBrowser page scrape failed: ${result.error}`);
   } finally {
     await context.close().catch(() => {});
@@ -216,9 +238,9 @@ async function recordSnapshot(
   return true;
 }
 
-async function autoScrollPage(page: any, result: Snapshot): Promise<string> {
-  const maxPasses = 120;
-  const pauseMs = 700;
+async function autoScrollPage(page: any, result: Snapshot, config: BrowserConfig): Promise<string> {
+  const maxPasses = config.scrollMaxPasses;
+  const pauseMs = config.scrollPauseMs;
   const seenSnapshots = new Set<string>();
   const chunks: string[] = [];
   let bottomStablePasses = 0;
@@ -269,7 +291,7 @@ async function autoScrollPage(page: any, result: Snapshot): Promise<string> {
     await page.waitForTimeout(pauseMs);
 
     try {
-      await page.waitForLoadState("networkidle", { timeout: 1500 });
+      await page.waitForLoadState("networkidle", { timeout: config.scrollIdleTimeoutMs });
     } catch {
       // best-effort
     }
@@ -310,19 +332,22 @@ async function autoScrollPage(page: any, result: Snapshot): Promise<string> {
       });
     });
 
-    const snapshotAdded = await recordSnapshot(page, result, seenSnapshots, chunks, `pass-${pass + 1}`);
     const state = JSON.stringify(after.map((item: any) => [item.index, item.top, item.height, item.clientHeight]));
     const movedOrGrew = state !== previousState;
     const allAtBottom = after.length > 0 && after.every((item: any) => item.atBottom);
 
-    if (allAtBottom && !movedOrGrew && !snapshotAdded) {
+    if ((pass + 1) % 3 === 0 || allAtBottom) {
+      await recordSnapshot(page, result, seenSnapshots, chunks, `pass-${pass + 1}`);
+    }
+
+    if (allAtBottom && !movedOrGrew) {
       bottomStablePasses += 1;
     } else {
       bottomStablePasses = 0;
     }
     previousState = state;
 
-    if (allAtBottom && bottomStablePasses >= 3) {
+    if (allAtBottom && bottomStablePasses >= 2) {
       result.notes.push(`scroll reached bottom after ${pass + 1} passes`);
       break;
     }

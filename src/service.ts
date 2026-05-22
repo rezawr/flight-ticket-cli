@@ -11,18 +11,37 @@ export class Service {
       warnings: []
     };
 
-    for (const provider of this.providers) {
-      results.providers.push(provider.name());
+    results.providers = this.providers.map(provider => provider.name());
+
+    type ProviderRun =
+      | { provider: string; items: FlightOption[] }
+      | { provider: string; error: string };
+
+    const providerRuns: ProviderRun[] = await Promise.all(this.providers.map(async provider => {
       try {
-        const items = await provider.search(req);
-        for (const item of items) {
-          if (req.maxStops >= 0 && item.stops > req.maxStops) {
-            continue;
-          }
-          results.options.push(item);
-        }
+        return {
+          provider: provider.name(),
+          items: await provider.search(req)
+        };
       } catch (error) {
-        results.warnings?.push(toErrorMessage(error));
+        return {
+          provider: provider.name(),
+          error: toErrorMessage(error)
+        };
+      }
+    }));
+
+    for (const run of providerRuns) {
+      if ("error" in run) {
+        results.warnings?.push(run.error);
+        continue;
+      }
+
+      for (const item of run.items) {
+        if (req.maxStops >= 0 && item.stops > req.maxStops) {
+          continue;
+        }
+        results.options.push(item);
       }
     }
 
