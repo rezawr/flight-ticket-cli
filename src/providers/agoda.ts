@@ -38,7 +38,7 @@ export class AgodaProvider implements Provider {
     if (reason) {
       throw new Error(reason);
     }
-    const url = buildAgodaRouteUrl(req.from, req.to, req.date, req.adults);
+    const url = buildAgodaRouteUrl(req.from, req.to, req.date, req.adults, req.children, req.infants, req.flightClass);
     const snapshot = await fetchPage(this.config, url);
     try {
       return parseAgodaOptions(snapshot.bodyText, req);

@@ -8,6 +8,9 @@ export interface SearchRequest {
   adults: number;
   currency: string;
   maxStops: number;
+  flightClass: string;
+  children: number;
+  infants: number;
   sort: SortKey;
 }
 
@@ -56,6 +59,15 @@ export function validateSearchRequest(req: SearchRequest): void {
   }
   if (req.adults <= 0) {
     throw new Error("--adults must be greater than 0");
+  }
+  if (req.children < 0) {
+    throw new Error("--children must be 0 or greater");
+  }
+  if (req.infants < 0) {
+    throw new Error("--infants must be 0 or greater");
+  }
+  if (!["economy", "premium", "business", "first"].includes(req.flightClass)) {
+    throw new Error(`unsupported --class "${req.flightClass}"; expected economy, premium, business, or first`);
   }
   if (!["", "price-asc", "price-desc", "depart-asc", "duration-asc"].includes(req.sort)) {
     throw new Error(`unsupported sort "${req.sort}"`);
