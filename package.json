@@ -1,6 +1,6 @@
 {
   "name": "flight-ticket-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CLI-only flight fare aggregator for tiket.com, Traveloka, and Agoda using CloakBrowser",
   "author": "rezawr",
   "license": "MIT",
