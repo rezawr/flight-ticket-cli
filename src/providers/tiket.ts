@@ -33,7 +33,7 @@ export class TiketProvider implements Provider {
     if (reason) {
       throw new Error(reason);
     }
-    const url = buildTiketRouteUrl(req.from, req.to, req.date, req.adults);
+    const url = buildTiketRouteUrl(req.from, req.to, req.date, req.adults, req.children, req.infants, req.flightClass);
     const snapshot = await fetchPage(this.config, url);
     try {
       return parseTiketOptions(snapshot.bodyText, req);

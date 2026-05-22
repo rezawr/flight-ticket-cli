@@ -48,13 +48,17 @@ async function run(args: string[]): Promise<void> {
 
 async function runSearch(args: string[], cheapest: boolean): Promise<void> {
   const parsed = parseFlags(args);
+  const flightClass = String(parsed.values.get("class") ?? parsed.values.get("flight-class") ?? "economy");
   const req: SearchRequest = {
     from: String(parsed.values.get("from") ?? ""),
     to: String(parsed.values.get("to") ?? ""),
     date: String(parsed.values.get("date") ?? ""),
     adults: parseIntFlag(parsed.values.get("adults"), 1),
+    children: parseIntFlag(parsed.values.get("children"), 0),
+    infants: parseIntFlag(parsed.values.get("infants"), 0),
     currency: String(parsed.values.get("currency") ?? "IDR"),
     maxStops: parseIntFlag(parsed.values.get("max-stops"), -1),
+    flightClass,
     sort: (String(parsed.values.get("sort") ?? "price-asc")) as SearchRequest["sort"]
   };
 
@@ -210,13 +214,20 @@ function usageText(commandName: string): string {
     `${commandName} is a Printing Press-style flight aggregator.`,
     "",
     "Usage:",
-    `  ${commandName} search --from CGK --to DPS --date 2026-06-15 [--json]`,
-    `  ${commandName} cheapest --from CGK --to DPS --date 2026-06-15`,
+    `  ${commandName} search --from CGK --to DPS --date 2026-06-15 [--adults 1] [--children 0] [--infants 0] [--class economy] [--json]`,
+    `  ${commandName} cheapest --from CGK --to DPS --date 2026-06-15 [--adults 1] [--children 0] [--infants 0] [--class economy]`,
     `  ${commandName} doctor [--json]`,
     `  ${commandName} version`,
     "",
+    "Passenger And Cabin Flags:",
+    "  --adults <n>       Number of adult passengers. Default: 1.",
+    "  --children <n>     Number of child passengers. Default: 0.",
+    "  --infants <n>      Number of infant passengers. Default: 0.",
+    "  --class <name>     Flight class: economy, premium, business, first. Default: economy.",
+    "",
     "Notes:",
     "  - tiket/traveloka/agoda use CloakBrowser scrapers against public route pages.",
+    "  - --flight-class is also accepted as an alias for --class.",
     "  - No login automation, or checkout scraping is included."
   ].join("\n");
 }

@@ -30,6 +30,12 @@ npm install -g flight-ticket-cli
 flight-ticket-pp-cli search --from CGK --to DPS --date 2026-06-15 --json
 ```
 
+Passenger and cabin options are available on both `search` and `cheapest`:
+
+```bash
+flight-ticket-pp-cli search --from CGK --to DPS --date 2026-06-15 --adults 2 --children 1 --infants 1 --class business --json
+```
+
 ## Commands
 
 ```bash
@@ -38,6 +44,31 @@ flight-ticket-pp-cli cheapest --from CGK --to DPS --date 2026-06-15
 flight-ticket-pp-cli doctor --json
 flight-ticket-pp-cli version
 ```
+
+## Passenger And Cabin Flags
+
+- `--adults <n>`: number of adult passengers. Default: `1`
+- `--children <n>`: number of child passengers. Default: `0`
+- `--infants <n>`: number of infant passengers. Default: `0`
+- `--class <economy|premium|business|first>`: requested cabin class. Default: `economy`
+- `--flight-class <...>`: alias for `--class`
+
+## For AI Agents
+
+If an AI agent installs this package, it should treat passenger counts and cabin class as first-class search inputs and pass them explicitly when provided by the user.
+
+Recommended command template:
+
+```bash
+flight-ticket-pp-cli search --from <ORIGIN> --to <DESTINATION> --date <YYYY-MM-DD> --adults <N> --children <N> --infants <N> --class <economy|premium|business|first> --json
+```
+
+Defaults when the user does not specify them:
+
+- adults: `1`
+- children: `0`
+- infants: `0`
+- class: `economy`
 
 ## Example JSON Output
 

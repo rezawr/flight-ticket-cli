@@ -33,7 +33,7 @@ export class TravelokaProvider implements Provider {
     if (reason) {
       throw new Error(reason);
     }
-    const url = buildTravelokaRouteUrl(req.from, req.to, req.date, req.adults);
+    const url = buildTravelokaRouteUrl(req.from, req.to, req.date, req.adults, req.children, req.infants, req.flightClass);
     const snapshot = await fetchPage(this.config, url);
     try {
       return parseTravelokaOptions(snapshot.bodyText, req);
