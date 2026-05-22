@@ -1,9 +1,12 @@
 name: Publish npm package
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to publish from
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -15,6 +18,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -32,14 +37,14 @@ jobs:
       - name: Verify package contents
         run: npm pack --dry-run
 
-      - name: Verify tag matches package version
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Verify ref matches package version
         shell: bash
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          RAW_REF="${{ inputs.ref }}"
+          TAG_NAME="${RAW_REF##refs/tags/}"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
-            echo "Tag version ($TAG_VERSION) does not match package.json version ($PACKAGE_VERSION)."
+          if [ "${TAG_NAME}" != "v${PACKAGE_VERSION}" ]; then
+            echo "Publish ref (${RAW_REF}) does not match package version (${PACKAGE_VERSION})."
             exit 1
           fi
 

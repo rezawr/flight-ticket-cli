@@ -14,11 +14,14 @@ on:
           - major
 
 jobs:
-  release:
+  prepare-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
+
+    outputs:
+      version: ${{ steps.version.outputs.new_version }}
+      publish_ref: ${{ steps.version.outputs.publish_ref }}
 
     steps:
       - name: Check out repository
@@ -30,8 +33,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -53,6 +55,7 @@ jobs:
         run: |
           NEW_VERSION="$(npm version "${{ inputs.release_type }}" --no-git-tag-version | sed 's/^v//')"
           echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "publish_ref=refs/tags/v${NEW_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Commit release version
         shell: bash
@@ -63,21 +66,15 @@ jobs:
       - name: Create git tag
         run: git tag "v${{ steps.version.outputs.new_version }}"
 
-      - name: Verify version is not already published
-        shell: bash
-        run: |
-          PACKAGE_NAME="$(node -p "require('./package.json').name")"
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
-            echo "Version ${PACKAGE_NAME}@${PACKAGE_VERSION} is already published on npm."
-            exit 1
-          fi
-
-      - name: Publish to npm
-        run: npm publish --access public
-
       - name: Push commit and tag
         shell: bash
         run: |
           git push origin "HEAD:${GITHUB_REF_NAME}"
           git push origin "v${{ steps.version.outputs.new_version }}"
+
+  publish-release:
+    needs: prepare-release
+    uses: ./.github/workflows/publish-npm.yml
+    with:
+      ref: ${{ needs.prepare-release.outputs.publish_ref }}
+    secrets: inherit
